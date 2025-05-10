@@ -1,0 +1,20 @@
+version: "3.4"
+services:
+  node-app:
+    build:
+      context: .
+      # dockerfile: Dockerfile.dev
+      target: development
+      args:
+        NODE_ENV: development
+    ports:
+      - "1337:1337"
+      - "8080:80"
+    volumes:
+      - ./src:/app/src
+      - /var/run/docker.sock:/var/run/docker.sock # gives access to the Docker deamon inside the container
+    environment:
+      - NODE_ENV=development
+      - MONGO_URI=mongodb+srv://username:password@cluster0.lgin6.mongodb.net/code-sprint
+      - ORIGINS=http://localhost:5173,http://localhost:5174
+    command: /bin/sh -c "/app/setup.sh && npm run dev"

@@ -1,0 +1,54 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files 
+COPY package*.json ./
+
+# Install dependencies
+RUN apk add --no-cache make g++ python3 linux-headers bash \
+    gcc musl-dev go openjdk11 ruby acl
+
+# Install TypeScript globally
+RUN npm install -g typescript
+
+# Create devx user and group 
+RUN addgroup -S devx && adduser -S devx -G devx -s /bin/bash
+
+# Configure workspace permissions
+RUN mkdir -p /home/devx/workspace && \
+    chown root:devx /home/devx/workspace && \
+    chmod 2775 /home/devx/workspace && \
+    setfacl -d -m g::rwx /home/devx/workspace && \
+    setfacl -d -m o::rx /home/devx/workspace
+
+# Configure home directory
+RUN mkdir -p /home/devx && \
+    chown root:devx /home/devx && \
+    chmod 755 /home/devx
+
+# Create cache directories
+RUN mkdir -p /home/devx/.cache/go-build && \
+    chown -R devx:devx /home/devx/.cache
+
+# Set environment variables
+ENV GOPATH=/home/devx/go
+ENV PATH=$PATH:$GOPATH/bin
+ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+
+# Create test files
+
+# Fix permissions for root-created files
+RUN chown -R :devx /home/devx/workspace && \
+    chmod -R g+rwX /home/devx/workspace
+
+# Secure system directories
+RUN chown -R root:root /app && \
+    chmod -R 700 /app && \
+    chown -R root:root /etc/apk && \
+    chmod 755 /etc/apk
+ 
+# Final setupp
+RUN npm install
+EXPOSE 5000
+CMD ["npm", "run", "dev"]
