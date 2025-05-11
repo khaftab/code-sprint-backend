@@ -6,6 +6,8 @@ services:
       context: .
     ports:
       - "1337:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # gives access to the Docker deamon
     environment:

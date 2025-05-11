@@ -3,12 +3,13 @@ import { USER_CONNECTION_STATUS, User } from "../types/user";
 import { SocketEvent, SocketId } from "../types/socket";
 import { FileManager } from "../utils/file-manager";
 import path from "path";
-import { FileWatcher } from "../utils/file-watcher";
+import { fileWatcherService, FileWatcher } from "../utils/file-watcher";
 import { getMessagesForRoom, storeMessage } from "../utils/chat-manager";
 import { getSnapshots, storeSnapshot } from "../utils/drawing-manager";
 // import { fileWatcherService } from "../server";
 let userSocketMap: User[] = [];
 export const handleCollabConnection = (socket: Socket, io: Server) => {
+  const fileWatcher = new FileWatcher(io);
   // Handle user actions
   // Function to get all users in a room
   function getUsersInRoom(roomId: string): User[] {
@@ -59,9 +60,9 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
     socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user });
     const users = userSocketMap.filter((u) => u.roomId === roomId);
     io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users });
-    const fileWatcherService = new FileWatcher(io);
-    await fileWatcherService.startWatching();
-    fileWatcherService.stopWatching();
+    // const fileWatcherService = new FileWatcher(io);
+    await fileWatcher.startWatching();
+    // fileWatcherService(io).stopWatching();
     const messages = getMessagesForRoom(roomId);
 
     // Send message history to the newly joined user
@@ -150,6 +151,8 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
   });
 
   socket.on(SocketEvent.FILE_UPDATED, async ({ fileId, newContent }) => {
+    // fileWatcherService(io).trackManualUpdate(fileId);
+    fileWatcher.trackManualUpdate(fileId);
     await FileManager.updateFileContent(fileId, newContent);
     const roomId = getRoomId(socket.id);
     if (!roomId) return;

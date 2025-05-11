@@ -6,7 +6,7 @@ import http from "http";
 import { handleCollabConnection } from "./socket-handlers/collab-handler";
 import { handleTerminalConnection } from "./socket-handlers/terminal-handler";
 import { User } from "./types/user";
-import { FileWatcher } from "./utils/file-watcher";
+import { fileWatcherService } from "./utils/file-watcher";
 import { SocketEvent } from "./types/socket";
 import { FileManager } from "./utils/file-manager";
 
@@ -51,10 +51,10 @@ const io = new Server(server, {
 
 const ptys = new Map<string, any>();
 
-const fileWatcher = new FileWatcher(io);
+// const fileWatcher = new FileWatcher(io);
 
 // Start watching for file changes immediately
-fileWatcher.startWatching();
+// fileWatcherService(io).startWatching();
 FileManager.createIndexFile();
 
 io.on("connection", (socket) => {

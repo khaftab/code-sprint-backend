@@ -35,6 +35,8 @@ RUN npm ci --omit=dev
 COPY --from=build /usr/src/app/setup.sh ./setup.sh
 COPY --from=build /usr/src/app/dist ./dist
 
+RUN chmod +x /usr/src/app/setup.sh
+
 ENV NODE_ENV=production
 
 CMD ["node", "dist/server.js"]

@@ -11,9 +11,18 @@ export class FileWatcher {
   private io: Server;
   private watcher: chokidar.FSWatcher | null = null;
   private isInitialScanComplete = false;
+  private manuallyUpdatedFiles = new Set<string>();
 
   constructor(io: Server) {
     this.io = io;
+  }
+
+  public trackManualUpdate(fileId: string): void {
+    const relativePath = FileManager.getRelativePath(fileId);
+    if (relativePath) {
+      this.manuallyUpdatedFiles.add(relativePath);
+      console.log(`Tracking manual update for: ${relativePath}`);
+    }
   }
 
   // Start watching the workspace directory
@@ -186,6 +195,14 @@ export class FileWatcher {
       if (!this.isInitialScanComplete) return;
 
       const relativePath = path.relative(FileManager.WORKSPACE_ROOT, filePath);
+
+      if (this.manuallyUpdatedFiles.has(relativePath)) {
+        // Remove from tracked set and skip broadcasting
+        this.manuallyUpdatedFiles.delete(relativePath);
+        console.log(`Ignoring change for manually updated file: ${relativePath}`);
+        return;
+      }
+
       const fileId = this.findIdForPath(relativePath);
 
       if (!fileId) {
@@ -355,3 +372,11 @@ export class FileWatcher {
     }
   }
 }
+let instance: FileWatcher | null = null;
+
+export const fileWatcherService = (io: Server): FileWatcher => {
+  if (!instance) {
+    instance = new FileWatcher(io);
+  }
+  return instance;
+};
