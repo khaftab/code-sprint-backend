@@ -9,7 +9,7 @@ import { getSnapshots, storeSnapshot } from "../utils/drawing-manager";
 // import { fileWatcherService } from "../server";
 let userSocketMap: User[] = [];
 export const handleCollabConnection = (socket: Socket, io: Server) => {
-  const fileWatcher = new FileWatcher(io);
+  // const fileWatcher = new FileWatcher(io);
   // Handle user actions
   // Function to get all users in a room
   function getUsersInRoom(roomId: string): User[] {
@@ -61,8 +61,8 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
     const users = userSocketMap.filter((u) => u.roomId === roomId);
     io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users });
     // const fileWatcherService = new FileWatcher(io);
-    await fileWatcher.startWatching();
-    // fileWatcherService(io).stopWatching();
+    // await fileWatcher.startWatching();
+    fileWatcherService(io).startWatching();
     const messages = getMessagesForRoom(roomId);
 
     // Send message history to the newly joined user
@@ -151,14 +151,20 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
   });
 
   socket.on(SocketEvent.FILE_UPDATED, async ({ fileId, newContent }) => {
-    // fileWatcherService(io).trackManualUpdate(fileId);
-    fileWatcher.trackManualUpdate(fileId);
+    fileWatcherService(io).isEditor = "editor";
     await FileManager.updateFileContent(fileId, newContent);
+    // const relativePath = FileManager.getRelativePath(fileId);
+    // console.log("relative", relativePath);
+
+    // if (relativePath) {
+    //   markFileUpdated(relativePath);
+    // }
     const roomId = getRoomId(socket.id);
     if (!roomId) return;
     socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
       fileId,
       newContent,
+      hak: "hak",
     });
   });
 

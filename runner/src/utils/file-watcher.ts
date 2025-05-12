@@ -11,18 +11,9 @@ export class FileWatcher {
   private io: Server;
   private watcher: chokidar.FSWatcher | null = null;
   private isInitialScanComplete = false;
-  private manuallyUpdatedFiles = new Set<string>();
-
+  public isEditor = "init";
   constructor(io: Server) {
     this.io = io;
-  }
-
-  public trackManualUpdate(fileId: string): void {
-    const relativePath = FileManager.getRelativePath(fileId);
-    if (relativePath) {
-      this.manuallyUpdatedFiles.add(relativePath);
-      console.log(`Tracking manual update for: ${relativePath}`);
-    }
   }
 
   // Start watching the workspace directory
@@ -190,18 +181,25 @@ export class FileWatcher {
 
   // Handle file content changes
   private async handleFileChange(filePath: string): Promise<void> {
+    if (this.isEditor !== "init") {
+      console.log("Init is true for isEditor value");
+      this.isEditor = "init";
+      return; // Skip if not the initial scan
+    }
+    console.log(`File changed - ${this.isEditor} -` + Math.floor(Math.random() * 100));
+    console.log("after", this.isEditor, "----");
+
     try {
       // Skip initial scan events
       if (!this.isInitialScanComplete) return;
 
       const relativePath = path.relative(FileManager.WORKSPACE_ROOT, filePath);
 
-      if (this.manuallyUpdatedFiles.has(relativePath)) {
-        // Remove from tracked set and skip broadcasting
-        this.manuallyUpdatedFiles.delete(relativePath);
-        console.log(`Ignoring change for manually updated file: ${relativePath}`);
-        return;
-      }
+      // if (isRecentlyUpdated(relativePath)) {
+      //   clearRecentUpdate(relativePath);
+      //   return; // Skip user-initiated changes
+      // }
+      // console.log("I ran outside", isRecentlyUpdated(relativePath));
 
       const fileId = this.findIdForPath(relativePath);
 
@@ -218,6 +216,7 @@ export class FileWatcher {
       this.broadcastToAllRooms(SocketEvent.FILE_UPDATED, {
         fileId,
         newContent: content,
+        from: "Form fiwatcher",
       });
     } catch (err) {
       console.error(`Error handling file change for ${filePath}:`, err);
