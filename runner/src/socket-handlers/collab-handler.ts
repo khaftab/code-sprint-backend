@@ -35,9 +35,11 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
     }
     return user;
   }
+
   socket.on(SocketEvent.JOIN_REQUEST, async ({ roomId, username }) => {
     console.log("join request", { roomId, username });
 
+    // Check if username exists
     const isUsernameExist = getUsersInRoom(roomId).filter((u) => u.username === username);
     console.log("username exist", isUsernameExist);
 
@@ -46,6 +48,7 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
       return;
     }
 
+    // Add user to room
     const user = {
       username,
       roomId,
@@ -57,18 +60,36 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
     };
     userSocketMap.push(user);
     socket.join(roomId);
+
+    // Notify other users
     socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user });
     const users = userSocketMap.filter((u) => u.roomId === roomId);
-    io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users });
-    // const fileWatcherService = new FileWatcher(io);
-    // await fileWatcher.startWatching();
-    fileWatcherService(io).startWatching();
-    const messages = getMessagesForRoom(roomId);
 
-    // Send message history to the newly joined user
+    // Accept join request
+    io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users });
+
+    // Get and send file watcher instance
+    const fw = fileWatcherService(io);
+
+    try {
+      // Make sure watcher is running (for file changes), but we'll use direct structure delivery
+      if (!fw.watcher) {
+        // Start watcher with ignoreInitial: true (set in the updated implementation)
+        await fw.startWatching();
+      }
+
+      // Always build and send the complete file structure directly
+      console.log("Building file structure for new user");
+      const fileStructure = await fw.buildInitialFileStructure();
+      io.to(socket.id).emit(SocketEvent.SYNC_FILE_STRUCTURE, { fileStructure });
+    } catch (error) {
+      console.error("Error setting up file system for user:", error);
+    }
+
+    // Send message history
+    const messages = getMessagesForRoom(roomId);
     if (messages.length > 0) {
       console.log("sending history", messages);
-
       io.to(socket.id).emit(SocketEvent.MESSAGE_HISTORY, messages);
     }
   });
@@ -87,19 +108,20 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
   });
 
   // Handle file actions
-  socket.on(
-    SocketEvent.SYNC_FILE_STRUCTURE,
-    ({ fileStructure, openFiles, activeFile, socketId }) => {
-      console.log("Syncfile is called");
-      // called when someone joins to the room if there is already poeple in there.
+  // socket.on(
+  //   SocketEvent.SYNC_FILE_STRUCTURE,
+  //   ({ fileStructure, openFiles, activeFile, socketId }) => {
+  //     console.log("Syncfile is called");
+  //     // called when someone joins to the room if there is already poeple in there.
+  //     console.log(fileStructure);
 
-      io.to(socketId).emit(SocketEvent.SYNC_FILE_STRUCTURE, {
-        fileStructure,
-        openFiles,
-        activeFile,
-      });
-    }
-  );
+  //     io.to(socketId).emit(SocketEvent.SYNC_FILE_STRUCTURE, {
+  //       fileStructure,
+  //       openFiles,
+  //       activeFile,
+  //     });
+  //   }
+  // );
 
   socket.on(SocketEvent.DIRECTORY_CREATED, async ({ parentDirId, newDirectory }) => {
     console.log("Creating directory", parentDirId, newDirectory);
@@ -151,20 +173,20 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
   });
 
   socket.on(SocketEvent.FILE_UPDATED, async ({ fileId, newContent }) => {
-    fileWatcherService(io).isEditor = "editor";
-    await FileManager.updateFileContent(fileId, newContent);
-    // const relativePath = FileManager.getRelativePath(fileId);
-    // console.log("relative", relativePath);
+    // Mark update as coming from editor to prevent feedback loop
+    fileWatcherService(io).setUpdateSource("editor");
 
-    // if (relativePath) {
-    //   markFileUpdated(relativePath);
-    // }
+    // Update file content through the file manager
+    await FileManager.updateFileContent(fileId, newContent);
+
+    // Broadcast to other users in the room
     const roomId = getRoomId(socket.id);
     if (!roomId) return;
+
     socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
       fileId,
       newContent,
-      hak: "hak",
+      from: "editor",
     });
   });
 
@@ -224,10 +246,12 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
   });
 
   // Handle cursor position
-  socket.on(SocketEvent.TYPING_START, ({ cursorPosition }) => {
+  socket.on(SocketEvent.TYPING_START, ({ cursorPosition, currentFile }) => {
+    console.log("Typing start", { cursorPosition, currentFile });
+
     userSocketMap = userSocketMap.map((user) => {
       if (user.socketId === socket.id) {
-        return { ...user, typing: true, cursorPosition };
+        return { ...user, typing: true, cursorPosition, currentFile };
       }
       return user;
     });

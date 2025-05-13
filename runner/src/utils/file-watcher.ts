@@ -1,4 +1,4 @@
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import * as chokidar from "chokidar";
 import fs from "fs/promises";
 import path from "path";
@@ -6,12 +6,19 @@ import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { SocketEvent } from "../types/socket";
 import { FileManager } from "./file-manager";
+import { FileSystem } from "../types/file";
 
 export class FileWatcher {
   private io: Server;
-  private watcher: chokidar.FSWatcher | null = null;
-  private isInitialScanComplete = false;
-  public isEditor = "init";
+  public watcher: chokidar.FSWatcher | null = null;
+  private isInitialScanCompleted = false;
+  // Check if initial scan is complete
+  public isInitialScanComplete(): boolean {
+    return this.isInitialScanCompleted;
+  }
+  // Track the source of file updates to prevent feedback loops
+  private updateSource: "terminal" | "editor" | "init" = "init";
+
   constructor(io: Server) {
     this.io = io;
   }
@@ -27,7 +34,7 @@ export class FileWatcher {
     return new Promise((resolve, reject) => {
       this.watcher = chokidar.watch(FileManager.WORKSPACE_ROOT, {
         persistent: true,
-        ignoreInitial: false, // Process all existing files
+        ignoreInitial: true, // Don't process existing files via events
         ignored: /(^|[\/\\])\../, // Ignore dot files
         depth: 99,
         awaitWriteFinish: {
@@ -45,7 +52,7 @@ export class FileWatcher {
         .on("unlinkDir", (dirPath) => this.handleDirDelete(dirPath))
         .on("ready", () => {
           console.log("Initial scan complete, ready for changes");
-          this.isInitialScanComplete = true;
+          this.isInitialScanCompleted = true;
           resolve(); // Resolve the promise when initial scan is complete
         })
         .on("error", (error) => {
@@ -60,8 +67,14 @@ export class FileWatcher {
     if (this.watcher) {
       this.watcher.close();
       this.watcher = null;
+      this.isInitialScanCompleted = false;
       console.log("File watcher stopped");
     }
+  }
+
+  // Set update source to track who's making changes
+  public setUpdateSource(source: "terminal" | "editor" | "init"): void {
+    this.updateSource = source;
   }
 
   // Get all connected socket IDs in a room
@@ -76,9 +89,8 @@ export class FileWatcher {
     // do not include executable files
     const fileName = path.basename(filePath);
     const fileExtension = path.extname(fileName);
-    // console.log(`File extension: ${fileExtension} for file: ${filePath}`);
 
-    if (!fileExtension) return; // Skip files without an extension (e.g., executables files from C lang etc.)
+    if (!fileExtension) return; // Skip files without an extension
     if (fileExtension === ".class") return; // Skip executable files
 
     try {
@@ -91,7 +103,6 @@ export class FileWatcher {
 
       // Get or create IDs
       let parentDirId = this.findIdForPath(parentRelativePath) as string;
-      // console.log(`Parent ID: ${parentDirId} for path: ${parentRelativePath}`);
 
       if (!parentDirId) {
         parentDirId = parentRelativePath === "" ? "root" : uuidv4();
@@ -115,9 +126,7 @@ export class FileWatcher {
         content,
       };
 
-      // Broadcast to all rooms since we don't know which room needs this file
-      // In a production app, you might want to be more selective
-      // await new Promise((resolve) => setTimeout(resolve, 500));
+      // Broadcast to all rooms
       this.broadcastToAllRooms(SocketEvent.FILE_CREATED, {
         parentDirId,
         newFile,
@@ -162,13 +171,6 @@ export class FileWatcher {
         isOpen: false,
       };
 
-      // console.log(
-      //   `${
-      //     this.isInitialScanComplete ? "Terminal created" : "Detected existing"
-      //   } directory: ${relativePath} with ID: ${dirId}`
-      // );
-      // await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate delay
-
       // Broadcast to all rooms
       this.broadcastToAllRooms(SocketEvent.DIRECTORY_CREATED, {
         parentDirId,
@@ -181,26 +183,17 @@ export class FileWatcher {
 
   // Handle file content changes
   private async handleFileChange(filePath: string): Promise<void> {
-    if (this.isEditor !== "init") {
-      console.log("Init is true for isEditor value");
-      this.isEditor = "init";
-      return; // Skip if not the initial scan
-    }
-    console.log(`File changed - ${this.isEditor} -` + Math.floor(Math.random() * 100));
-    console.log("after", this.isEditor, "----");
+    console.log(`File changed - source: ${this.updateSource}`);
 
     try {
-      // Skip initial scan events
-      if (!this.isInitialScanComplete) return;
+      // Skip if not the initial scan and source is editor
+      if (this.isInitialScanCompleted && this.updateSource === "editor") {
+        console.log("Skipping file update event from editor");
+        this.updateSource = "init"; // Reset for next event
+        return;
+      }
 
       const relativePath = path.relative(FileManager.WORKSPACE_ROOT, filePath);
-
-      // if (isRecentlyUpdated(relativePath)) {
-      //   clearRecentUpdate(relativePath);
-      //   return; // Skip user-initiated changes
-      // }
-      // console.log("I ran outside", isRecentlyUpdated(relativePath));
-
       const fileId = this.findIdForPath(relativePath);
 
       if (!fileId) {
@@ -210,14 +203,17 @@ export class FileWatcher {
 
       const content = await fs.readFile(filePath, "utf8");
 
-      // console.log(`Terminal updated file: ${relativePath} with ID: ${fileId}`);
-
       // Broadcast file update
       this.broadcastToAllRooms(SocketEvent.FILE_UPDATED, {
         fileId,
         newContent: content,
-        from: "Form fiwatcher",
+        from: this.isInitialScanCompleted ? "terminal" : "init",
       });
+
+      // Reset update source after handling
+      if (this.isInitialScanCompleted) {
+        this.updateSource = "init";
+      }
     } catch (err) {
       console.error(`Error handling file change for ${filePath}:`, err);
     }
@@ -227,7 +223,7 @@ export class FileWatcher {
   private async handleFileDelete(filePath: string): Promise<void> {
     try {
       // Skip initial scan events
-      if (!this.isInitialScanComplete) return;
+      if (!this.isInitialScanCompleted) return;
 
       const relativePath = path.relative(FileManager.WORKSPACE_ROOT, filePath);
       const fileId = this.findIdForPath(relativePath);
@@ -236,8 +232,6 @@ export class FileWatcher {
         console.warn(`No ID found for deleted file: ${relativePath}`);
         return;
       }
-
-      // console.log(`Terminal deleted file: ${relativePath} with ID: ${fileId}`);
 
       // Broadcast file deletion
       this.broadcastToAllRooms(SocketEvent.FILE_DELETED, {
@@ -255,7 +249,7 @@ export class FileWatcher {
   private async handleDirDelete(dirPath: string): Promise<void> {
     try {
       // Skip initial scan events
-      if (!this.isInitialScanComplete) return;
+      if (!this.isInitialScanCompleted) return;
 
       const relativePath = path.relative(FileManager.WORKSPACE_ROOT, dirPath);
       const dirId = this.findIdForPath(relativePath);
@@ -264,8 +258,6 @@ export class FileWatcher {
         console.warn(`No ID found for deleted directory: ${relativePath}`);
         return;
       }
-
-      // console.log(`Terminal deleted directory: ${relativePath} with ID: ${dirId}`);
 
       // Broadcast directory deletion
       this.broadcastToAllRooms(SocketEvent.DIRECTORY_DELETED, {
@@ -288,8 +280,6 @@ export class FileWatcher {
 
   // Broadcast an event to all rooms
   private broadcastToAllRooms(event: SocketEvent, data: any): void {
-    // console.log(event, data);
-
     this.io.emit(event, data);
   }
 
@@ -306,7 +296,7 @@ export class FileWatcher {
 
   // Build initial file structure for client sync
   public async buildInitialFileStructure(): Promise<any> {
-    const rootStructure = {
+    const rootStructure: FileSystem = {
       id: "root",
       name: "workspace",
       type: "directory",
@@ -315,7 +305,6 @@ export class FileWatcher {
     };
 
     try {
-      // @ts-ignore
       rootStructure.children = await this.scanDirectory(FileManager.WORKSPACE_ROOT);
       return rootStructure;
     } catch (err) {
@@ -371,6 +360,8 @@ export class FileWatcher {
     }
   }
 }
+
+// Singleton pattern for FileWatcher
 let instance: FileWatcher | null = null;
 
 export const fileWatcherService = (io: Server): FileWatcher => {

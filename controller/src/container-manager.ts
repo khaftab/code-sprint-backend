@@ -97,7 +97,7 @@ class ContainerManager extends EventEmitter {
       await this.scheduleNginxReload();
 
       // Add a small delay to ensure Nginx is fully ready
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 1500));
 
       // Emit event for tracking
       this.emit("container-launched", containerData);

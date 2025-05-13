@@ -8,6 +8,7 @@ import { setupCleanupJob } from "./jobs/cleanup-instance";
 const app = express();
 const ORIGINS = process.env.ORIGINS?.split(",") || [];
 console.log(ORIGINS, "yoo");
+import { containerPoolManager } from "./container-pool-manager";
 
 app.set("trust proxy", true);
 app.use(express.json());
@@ -43,7 +44,10 @@ app.get("/delete", async (req, res) => {
 console.log("mnog uro", process.env.MONGO_URI);
 
 mongoose
-  .connect(process.env.MONGO_URI!)
+  .connect(process.env.MONGO_URI!, {
+    connectTimeoutMS: 60000,
+    socketTimeoutMS: 60000,
+  })
   .then(() => {
     console.log("Connected to MongoDB");
     const PORT = process.env.PORT || 1337;
@@ -51,6 +55,9 @@ mongoose
       console.log(`Server is running on http://localhost:${PORT}`);
     });
     setupCleanupJob();
+    (async () => {
+      await containerPoolManager.maintainContainerPool();
+    })();
   })
   .catch((error) => {
     console.error("Error connecting to MongoDB:", error);
