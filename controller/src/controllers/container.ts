@@ -93,6 +93,22 @@ export const getSocketPath = async (req: Request, res: Response) => {
         Env: [`SOCKET_PATH=${containerPath}`, `ORIGINS=${ORIGINS}`],
       });
 
+      // Create an Instance document
+      const instance = new Instance({
+        containerId: container.id,
+        path: containerPath,
+        name: container.name,
+        status: "allocated",
+        metadata: {
+          ports: {
+            internal: container.ports.internal,
+            external: container.ports.external,
+          },
+        },
+      });
+
+      await instance.save();
+
       // Create an allocation
       const allocation = new Allocation({
         roomId: roomId,
@@ -100,6 +116,9 @@ export const getSocketPath = async (req: Request, res: Response) => {
         instanceId: container.id,
       });
       await allocation.save();
+
+      // TOP UP THE POOL
+      containerPoolManager.maintainContainerPool();
 
       res.status(201).json({ socketPath: containerPath });
       return;

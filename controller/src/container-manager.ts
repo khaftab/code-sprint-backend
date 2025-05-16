@@ -35,8 +35,7 @@ class ContainerManager extends EventEmitter {
     options: Partial<ContainerCreateOptions> = {}
   ): Promise<ContainerData> {
     // Generate a unique container name based on the path
-    const safePath = path.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase();
-    const containerName = `container-${safePath}-${Date.now().toString().slice(-6)}`;
+    // const containerName = `container-${path}-${Date.now().toString().slice(-6)}`;
 
     try {
       console.log(`Launching container from image: ${imageName} with path: ${path}`);
@@ -44,7 +43,7 @@ class ContainerManager extends EventEmitter {
       // Default container configuration
       const containerConfig: ContainerCreateOptions = {
         Image: imageName,
-        name: containerName,
+        name: path,
         AttachStdin: false,
         AttachStdout: true,
         AttachStderr: true,
@@ -78,7 +77,7 @@ class ContainerManager extends EventEmitter {
       // Create container data object
       const containerData: ContainerData = {
         id: containerInfo.Id,
-        name: containerName,
+        name: path,
         path,
         ports: {
           internal: 5000,
@@ -97,7 +96,7 @@ class ContainerManager extends EventEmitter {
       await this.scheduleNginxReload();
 
       // Add a small delay to ensure Nginx is fully ready
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 2500));
 
       // Emit event for tracking
       this.emit("container-launched", containerData);

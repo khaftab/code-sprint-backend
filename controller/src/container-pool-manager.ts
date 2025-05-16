@@ -100,9 +100,6 @@ class ContainerPoolManager {
 }
 
 // Singleton export
-export const containerPoolManager = new ContainerPoolManager();
-
-// Initialize pool on startup
-// (async () => {
-//   await containerPoolManager.maintainContainerPool();
-// })();
+export const containerPoolManager = new ContainerPoolManager(
+  process.env.CONTAINER_POOL_SIZE ? parseInt(process.env.CONTAINER_POOL_SIZE) : 2
+);
