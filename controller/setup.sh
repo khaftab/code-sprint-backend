@@ -7,10 +7,13 @@ if ! command -v nginx &> /dev/null; then
     apk add --no-cache nginx
 fi
 
+# Create directory for SSL certificates
+mkdir -p /etc/nginx/ssl
+
 # Create directory for container configs
 mkdir -p /etc/nginx/conf.d
 
-# Create base Nginx configuration
+# Create Nginx configuration
 cat > /etc/nginx/nginx.conf << 'EOF'
 user nginx;
 worker_processes auto;
@@ -36,14 +39,25 @@ http {
 
   gzip on;
 
-  #include /etc/nginx/conf.d/*.conf;
-
   server {
       listen 80;
-      server_name localhost;
+      server_name code-sprint-backend.khaftab.me;
+      return 301 https://$host$request_uri;
+  }
+
+  server {
+      listen 443 ssl;
+      server_name code-sprint-backend.khaftab.me;
+
+      ssl_certificate /etc/nginx/ssl/fullchain.pem;
+      ssl_certificate_key /etc/nginx/ssl/privkey.pem;
+
+      ssl_protocols TLSv1.2 TLSv1.3;
+      ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256';
+      ssl_prefer_server_ciphers on;
 
       location /hello {
-          return 200 "nginx is working\n";
+          return 200 "nginx is working with SSL!\n";
       }
 
       include /etc/nginx/conf.d/*.conf;
@@ -81,8 +95,10 @@ EOF
 # EOF
 
 # Set proper permissions
+chown -R nginx:nginx /etc/nginx
 chown -R nginx:nginx /etc/nginx/conf.d
 chmod -R 644 /etc/nginx/conf.d
+# chmod 400 /etc/nginx/ssl/key.pem
 
 # Test Nginx configuration
 nginx -t
