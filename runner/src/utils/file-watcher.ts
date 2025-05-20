@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import { SocketEvent } from "../types/socket";
 import { FileManager } from "./file-manager";
 import { FileSystem } from "../types/file";
+import { filesToIgnore } from "./file-to-ignore";
 
 export class FileWatcher {
   private io: Server;
@@ -91,7 +92,12 @@ export class FileWatcher {
     const fileExtension = path.extname(fileName);
 
     if (!fileExtension) return; // Skip files without an extension
-    if (fileExtension === ".class") return; // Skip executable files
+    // if (fileExtension === ".class") return; // Skip executable files
+    const shouldIgnore = filesToIgnore.some((ext) => fileName.includes(ext));
+    if (shouldIgnore) {
+      console.log(`Ignoring file with extension: ${fileExtension}`);
+      return; // This will exit the parent function
+    }
 
     try {
       const relativePath = path.relative(FileManager.WORKSPACE_ROOT, filePath);
@@ -325,6 +331,19 @@ export class FileWatcher {
 
         // Skip dotfiles
         if (entry.name.startsWith(".")) continue;
+        // skip if it does not have an extension
+
+        if (!entry.isDirectory() && !entry.name.includes(".")) continue;
+
+        let shouldIgnore = false;
+        for (const ext of filesToIgnore) {
+          if (entry.name.includes(ext)) {
+            console.log(`Ignoring file with extension: ${entry.name}`);
+            shouldIgnore = true;
+            break;
+          }
+        }
+        if (shouldIgnore) continue;
 
         // Get or create ID for this path
         let itemId = this.findIdForPath(relativePath) as string;

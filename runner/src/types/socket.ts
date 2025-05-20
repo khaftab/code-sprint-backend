@@ -28,6 +28,7 @@ enum SocketEvent {
   SYNC_DRAWING = "sync-drawing",
   DRAWING_READY = "drawing-ready",
   DRAWING_UPDATE = "drawing-update",
+  ERROR = "error",
 }
 
 interface SocketContext {

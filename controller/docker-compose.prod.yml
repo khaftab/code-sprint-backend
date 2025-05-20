@@ -12,7 +12,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # gives access to the Docker deamon
       - /etc/letsencrypt:/etc/letsencrypt:ro
-      - ./config/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx.prod.conf:/etc/nginx/nginx.conf:ro
     environment:
       - NODE_ENV=production
       - MONGO_URI=mongodb+srv://username:password@cluster0.lgin6.mongodb.net/code-sprint

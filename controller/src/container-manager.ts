@@ -40,6 +40,14 @@ class ContainerManager extends EventEmitter {
     try {
       console.log(`Launching container from image: ${imageName} with path: ${path}`);
 
+      const resourceLimits = {
+        NanoCpus: 500000000, // 0.5 CPU cores (in nano units)
+        Memory: 512 * 1024 * 1024, // 512MB in bytes
+        MemorySwap: 512 * 1024 * 1024, // Same as memory (disable swap)
+        CpuQuota: 50000, // 50% of CPU period (alternative way to limit CPU)
+        PidsLimit: 100, // Limit number of processes
+      };
+
       // Default container configuration
       const containerConfig: ContainerCreateOptions = {
         Image: imageName,
@@ -54,6 +62,7 @@ class ContainerManager extends EventEmitter {
           "5000/tcp": {}, // Default exposed port
         },
         HostConfig: {
+          ...resourceLimits,
           PortBindings: {
             "5000/tcp": [{ HostPort: "0" }], // Assign random port on host
           },

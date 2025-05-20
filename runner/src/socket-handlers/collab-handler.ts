@@ -84,6 +84,9 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
       io.to(socket.id).emit(SocketEvent.SYNC_FILE_STRUCTURE, { fileStructure });
     } catch (error) {
       console.error("Error setting up file system for user:", error);
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error setting up file system",
+      });
     }
 
     // Send message history
@@ -124,14 +127,19 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
   // );
 
   socket.on(SocketEvent.DIRECTORY_CREATED, async ({ parentDirId, newDirectory }) => {
-    console.log("Creating directory", parentDirId, newDirectory);
-    await FileManager.createDirectory(parentDirId, newDirectory);
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
-    socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_CREATED, {
-      parentDirId,
-      newDirectory,
-    });
+    try {
+      await FileManager.createDirectory(parentDirId, newDirectory);
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_CREATED, {
+        parentDirId,
+        newDirectory,
+      });
+    } catch (error) {
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error creating directory",
+      });
+    }
   });
 
   socket.on(SocketEvent.DIRECTORY_UPDATED, ({ dirId, children }) => {
@@ -145,69 +153,101 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
 
   socket.on(SocketEvent.DIRECTORY_RENAMED, async ({ dirId, newDirName }) => {
     console.log("Renaming directory", dirId, newDirName);
-
-    await FileManager.renameItem(dirId, newDirName);
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
-    socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_RENAMED, {
-      dirId,
-      newName: newDirName,
-    });
+    try {
+      await FileManager.renameItem(dirId, newDirName);
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_RENAMED, {
+        dirId,
+        newName: newDirName,
+      });
+    } catch (error) {
+      socket.emit("error", {
+        message: "Error renaming directory",
+      });
+    }
   });
 
   socket.on(SocketEvent.DIRECTORY_DELETED, async ({ dirId }) => {
-    await FileManager.deleteItem(dirId);
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
-    socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_DELETED, { dirId });
+    try {
+      await FileManager.deleteItem(dirId);
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_DELETED, { dirId });
+    } catch (error) {
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error deleting directory",
+      });
+    }
   });
 
   socket.on(SocketEvent.FILE_CREATED, async ({ parentDirId, newFile }) => {
-    // const fileStructure = await fileWatcherService.buildFileStructure();
-    console.log(parentDirId, "haka", newFile);
-    await FileManager.createFile(parentDirId, newFile);
+    try {
+      await FileManager.createFile(parentDirId, newFile);
 
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
-    socket.broadcast.to(roomId).emit(SocketEvent.FILE_CREATED, { parentDirId, newFile });
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit(SocketEvent.FILE_CREATED, { parentDirId, newFile });
+    } catch (error) {
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error creating file",
+      });
+    }
   });
 
   socket.on(SocketEvent.FILE_UPDATED, async ({ fileId, newContent }) => {
-    // Mark update as coming from editor to prevent feedback loop
-    fileWatcherService(io).setUpdateSource("editor");
+    try {
+      // Mark update as coming from editor to prevent feedback loop
+      fileWatcherService(io).setUpdateSource("editor");
 
-    // Update file content through the file manager
-    await FileManager.updateFileContent(fileId, newContent);
+      // Update file content through the file manager
+      await FileManager.updateFileContent(fileId, newContent);
 
-    // Broadcast to other users in the room
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
+      // Broadcast to other users in the room
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
 
-    socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
-      fileId,
-      newContent,
-      from: "editor",
-    });
+      socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
+        fileId,
+        newContent,
+        from: "editor",
+      });
+    } catch (error) {
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error updating file",
+      });
+    }
   });
 
   socket.on(SocketEvent.FILE_RENAMED, async ({ fileId, newName }) => {
-    console.log("Renaming file", fileId, newName);
+    try {
+      await FileManager.renameItem(fileId, newName);
 
-    await FileManager.renameItem(fileId, newName);
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
-    socket.broadcast.to(roomId).emit(SocketEvent.FILE_RENAMED, {
-      fileId,
-      newName,
-    });
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit(SocketEvent.FILE_RENAMED, {
+        fileId,
+        newName,
+      });
+    } catch (error) {
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error renaming file",
+      });
+    }
   });
 
   socket.on(SocketEvent.FILE_DELETED, async ({ fileId }) => {
-    await FileManager.deleteItem(fileId);
+    try {
+      await FileManager.deleteItem(fileId);
 
-    const roomId = getRoomId(socket.id);
-    if (!roomId) return;
-    socket.broadcast.to(roomId).emit(SocketEvent.FILE_DELETED, { fileId });
+      const roomId = getRoomId(socket.id);
+      if (!roomId) return;
+      socket.broadcast.to(roomId).emit(SocketEvent.FILE_DELETED, { fileId });
+    } catch (error) {
+      socket.emit(SocketEvent.ERROR, {
+        message: "Error deleting file",
+      });
+    }
   });
 
   // Handle user status
