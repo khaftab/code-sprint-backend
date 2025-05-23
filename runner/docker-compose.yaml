@@ -10,13 +10,6 @@ services:
       - "5000:5000"
     volumes:
       - ./src:/app/src
-      - ./package.json:/app/package.json
-      - ./package-lock.json:/app/package-lock.json
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./nodemon.json:/app/nodemon.json
-      - /app/node_modules
     environment:
       - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
-    # For better performance on Windows
     command: npm run dev

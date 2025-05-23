@@ -1,20 +1,15 @@
 import express from "express";
 import dotenv from "dotenv";
-import cors from "cors";
 import { Server } from "socket.io";
 import http from "http";
 import { handleCollabConnection } from "./socket-handlers/collab-handler";
 import { handleTerminalConnection } from "./socket-handlers/terminal-handler";
-import { User } from "./types/user";
-import { fileWatcherService } from "./utils/file-watcher";
-import { SocketEvent } from "./types/socket";
 import { FileManager } from "./utils/file-manager";
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-// app.use(cors({ origin: "http://localhost:5174", credentials: true }));
 
 app.use((req, res, next) => {
   const path = req.path;
@@ -47,18 +42,11 @@ const io = new Server(server, {
   pingTimeout: 60000,
 });
 
-// Shared state
-
 const ptys = new Map<string, any>();
 
-// const fileWatcher = new FileWatcher(io);
-
-// Start watching for file changes immediately
-// fileWatcherService(io).startWatching();
 FileManager.createIndexFile();
 
 io.on("connection", (socket) => {
-  // Initialize collaboration handler
   handleCollabConnection(socket, io);
   handleTerminalConnection(socket, ptys);
 });

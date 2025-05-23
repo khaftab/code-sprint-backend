@@ -10,12 +10,6 @@ const idToPathMap = new Map();
 // Initialize the root path mapping
 idToPathMap.set("root", "");
 
-// log id to path mapping
-// console.log("Initial ID to Path Mapping:");
-for (const [id, relativePath] of idToPathMap.entries()) {
-  // console.log(`ID: ${id}, Path: ${relativePath}`);
-}
-
 export class FileManager {
   static WORKSPACE_ROOT = WORKSPACE_ROOT;
 
@@ -64,13 +58,11 @@ export class FileManager {
   // Register a new path-to-ID mapping
   static registerPath(id: string, relativePath: string) {
     idToPathMap.set(id, relativePath);
-    // console.log(`Registered path mapping: ${id} -> ${relativePath}`);
   }
 
   // Unregister a path mapping
   static unregisterPath(id: string) {
     if (idToPathMap.has(id)) {
-      // console.log(`Unregistered path mapping: ${id} -> ${idToPathMap.get(id)}`);
       idToPathMap.delete(id);
     }
   }
@@ -147,16 +139,11 @@ export class FileManager {
       // Check if it's a directory and update all child paths
       const stats = await fs.stat(newAbsolutePath);
       if (stats.isDirectory()) {
-        // console.log(
-        //   `Updating paths for children of renamed directory: ${oldRelativePath} -> ${newRelativePath}`
-        // );
-
         // Update all paths that start with the old directory path
         for (const [id, path] of Array.from(idToPathMap.entries())) {
           if (path !== oldRelativePath && path.startsWith(oldRelativePath + "/")) {
             // Replace the directory prefix with the new name
             const updatedPath = path.replace(oldRelativePath, newRelativePath);
-            // console.log(`Updating child path: ${path} -> ${updatedPath}`);
             idToPathMap.set(id, updatedPath);
           }
         }

@@ -2,7 +2,6 @@ import { Document, Schema, model } from "mongoose";
 
 export interface Allocation extends Document {
   roomId: string;
-  // usernames: string[];
   path: string;
   instanceId: string;
   allocatedAt?: Date;
@@ -15,14 +14,6 @@ const allocationSchema = new Schema<Allocation>({
     required: true,
     unique: true,
   },
-  // usernames: {
-  //   type: [String],
-  //   required: true,
-  //   validate: {
-  //     validator: (usernames: string[]) => new Set(usernames).size === usernames.length,
-  //     message: "Usernames must be unique within the room",
-  //   },
-  // },
   instanceId: {
     type: String,
     ref: "Instance",

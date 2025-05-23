@@ -1,4 +1,3 @@
-// src/utils/path-validator.ts
 import path from "path";
 
 export class PathValidator {

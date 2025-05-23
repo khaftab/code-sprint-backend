@@ -10,7 +10,6 @@ export const setupCleanupJob = () => {
     try {
       console.log("Running instance cleanup job...");
       const cutoff = new Date(Date.now() - 45 * 60 * 1000); // 45-min inactivity
-      // Find allocations with no activity in the last 30 minutes
       const inactiveAllocations = await Allocation.find({
         lastActivity: { $lt: cutoff },
       });

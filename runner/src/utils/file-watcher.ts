@@ -78,12 +78,6 @@ export class FileWatcher {
     this.updateSource = source;
   }
 
-  // Get all connected socket IDs in a room
-  private getSocketsInRoom(roomId: string): string[] {
-    const room = this.io.sockets.adapter.rooms.get(roomId);
-    return room ? Array.from(room) : [];
-  }
-
   // Handle file creation or initial detection
   private async handleFileAdd(filePath: string): Promise<void> {
     console.log(`File added: ${filePath}`);

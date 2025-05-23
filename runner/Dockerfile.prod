@@ -72,9 +72,6 @@ RUN chown -R root:root /app && \
 # Final permissions fix
 RUN chmod -R g+rwX /home/devx/workspace
 
-# Switch to non-root user
-# USER devx
-
 EXPOSE 5000
 
 CMD ["node", "dist/server.js"]

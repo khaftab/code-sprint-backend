@@ -2,7 +2,6 @@ import { Socket } from "socket.io";
 var pty = require("node-pty");
 
 export const handleTerminalConnection = (socket: Socket, ptys: Map<string, any>) => {
-  // console.log("Client connected:", socket.id);
   const shell = process.platform === "win32" ? "cmd.exe" : "su";
   const args =
     process.platform === "win32"
@@ -32,15 +31,6 @@ export const handleTerminalConnection = (socket: Socket, ptys: Map<string, any>)
 
   socket.on("terminal-input", (input: string) => {
     ptyProcess.write(input);
-  });
-
-  socket.on("terminal-request-initial-output", () => {
-    // Send a carriage return to trigger the shell to print the prompt
-    // ptyProcess.write("\r");
-    // ptyProcess.write("\r && clear");
-    // ptyProcess.write("\x1b[2J\x1b[H");
-    // Or alternatively, you could store the last known terminal state
-    // and replay it to new connections
   });
 
   socket.on("terminal-resize", (size: { cols: number; rows: number }) => {

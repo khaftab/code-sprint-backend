@@ -15,7 +15,6 @@ interface ContainerData {
 
 class ContainerManager extends EventEmitter {
   private docker: Dockerode;
-  private containers: Map<string, ContainerData>;
   private nginxReloadDebounceTimeout: NodeJS.Timeout | null = null;
   private pendingReloadPromise: Promise<void> | null = null;
   private pendingReloadResolve: (() => void) | null = null;
@@ -23,7 +22,6 @@ class ContainerManager extends EventEmitter {
   constructor() {
     super();
     this.docker = new Dockerode();
-    this.containers = new Map();
   }
 
   /**
@@ -44,7 +42,6 @@ class ContainerManager extends EventEmitter {
         NanoCpus: 500000000, // 0.5 CPU cores (in nano units)
         Memory: 512 * 1024 * 1024, // 512MB in bytes
         MemorySwap: 512 * 1024 * 1024, // Same as memory (disable swap)
-        CpuQuota: 50000, // 50% of CPU period (alternative way to limit CPU)
         PidsLimit: 100, // Limit number of processes
       };
 
@@ -62,7 +59,7 @@ class ContainerManager extends EventEmitter {
           "5000/tcp": {}, // Default exposed port
         },
         HostConfig: {
-          ...resourceLimits,
+          // ...resourceLimits,
           PortBindings: {
             "5000/tcp": [{ HostPort: "0" }], // Assign random port on host
           },
@@ -96,10 +93,7 @@ class ContainerManager extends EventEmitter {
         createdAt: new Date(),
       };
 
-      // Store container info
-      this.containers.set(containerInfo.Id, containerData);
-
-      await this.updateNginxConfig(containerInfo.Id);
+      await this.updateNginxConfig(containerData);
 
       // Trigger nginx config update and wait for it
       await this.scheduleNginxReload();
@@ -152,9 +146,6 @@ class ContainerManager extends EventEmitter {
       } catch (err) {
         console.error(`Error removing nginx config file: ${err}`);
       }
-
-      // Remove from our registry
-      this.containers.delete(containerId);
 
       // Reload Nginx to apply changes and wait for it
       await this.scheduleNginxReload();
@@ -237,48 +228,17 @@ class ContainerManager extends EventEmitter {
   /**
    * Update Nginx configuration for a specific container
    */
-  private async updateNginxConfig(containerId: string): Promise<void> {
+  private async updateNginxConfig(containerData: ContainerData): Promise<void> {
     try {
-      const containerInfo = this.containers.get(containerId);
-      if (!containerInfo) {
-        throw new Error(`Container ${containerId} not found`);
-      }
-
-      const config = this.generateConfig(containerInfo.path, containerInfo.ports.external);
+      const config = this.generateConfig(containerData.path, containerData.ports.external);
 
       // Write the config to a file
-      await fs.writeFile(`/etc/nginx/conf.d/${containerInfo.path}.conf`, config);
+      await fs.writeFile(`/etc/nginx/conf.d/${containerData.path}.conf`, config);
 
-      console.log(`Nginx configuration updated for container ${containerInfo.name}`);
+      console.log(`Nginx configuration updated for container ${containerData.name}`);
     } catch (error) {
       console.error("Failed to update Nginx config:", error);
     }
-  }
-
-  /**
-   * Get all registered containers
-   */
-  getAllContainers(): ContainerData[] {
-    return Array.from(this.containers.values());
-  }
-
-  /**
-   * Get container by ID
-   */
-  getContainer(id: string): ContainerData | undefined {
-    return this.containers.get(id);
-  }
-
-  /**
-   * Get container by path
-   */
-  getContainerByPath(path: string): ContainerData | undefined {
-    for (const container of this.containers.values()) {
-      if (container.path === path) {
-        return container;
-      }
-    }
-    return undefined;
   }
 }
 

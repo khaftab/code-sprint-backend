@@ -50,5 +50,6 @@ RUN chown -R root:root /app && \
  
 # Final setupp
 RUN npm install
+COPY . ./
 EXPOSE 5000
 CMD ["npm", "run", "dev"]

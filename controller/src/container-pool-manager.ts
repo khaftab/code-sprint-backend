@@ -1,6 +1,5 @@
 import { containerManager } from "./container-manager";
 import { Instance } from "./models/instance";
-import { Allocation } from "./models/allocation";
 import { generateContainerName } from "./utils/generate-container-name";
 
 class ContainerPoolManager {

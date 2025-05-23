@@ -2,16 +2,11 @@ import { Socket, Server } from "socket.io";
 import { USER_CONNECTION_STATUS, User } from "../types/user";
 import { SocketEvent, SocketId } from "../types/socket";
 import { FileManager } from "../utils/file-manager";
-import path from "path";
 import { fileWatcherService, FileWatcher } from "../utils/file-watcher";
 import { getMessagesForRoom, storeMessage } from "../utils/chat-manager";
 import { getSnapshots, storeSnapshot } from "../utils/drawing-manager";
-// import { fileWatcherService } from "../server";
 let userSocketMap: User[] = [];
 export const handleCollabConnection = (socket: Socket, io: Server) => {
-  // const fileWatcher = new FileWatcher(io);
-  // Handle user actions
-  // Function to get all users in a room
   function getUsersInRoom(roomId: string): User[] {
     return userSocketMap.filter((user) => user.roomId == roomId);
   }
@@ -21,7 +16,6 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
     const roomId = userSocketMap.find((user) => user.socketId === socketId)?.roomId;
 
     if (!roomId) {
-      // console.error("Room ID is undefined for socket ID:", socketId);
       return null;
     }
     return roomId;
@@ -109,22 +103,6 @@ export const handleCollabConnection = (socket: Socket, io: Server) => {
     userSocketMap = userSocketMap.filter((u) => u.socketId !== socket.id);
     socket.leave(roomId);
   });
-
-  // Handle file actions
-  // socket.on(
-  //   SocketEvent.SYNC_FILE_STRUCTURE,
-  //   ({ fileStructure, openFiles, activeFile, socketId }) => {
-  //     console.log("Syncfile is called");
-  //     // called when someone joins to the room if there is already poeple in there.
-  //     console.log(fileStructure);
-
-  //     io.to(socketId).emit(SocketEvent.SYNC_FILE_STRUCTURE, {
-  //       fileStructure,
-  //       openFiles,
-  //       activeFile,
-  //     });
-  //   }
-  // );
 
   socket.on(SocketEvent.DIRECTORY_CREATED, async ({ parentDirId, newDirectory }) => {
     try {
